@@ -37,9 +37,6 @@ const double prop_female = sr, prop_male = 1 - sr;
 const double muW = 0.2;
 const double muS = 12;
 const double rho = 0.5;
-// const double stepsize = 1.0/364;
-const double stepsize = 1.0/52;
-// const double stepsize = 1.0/12;
 const double lower = 0.0, upper=2.0*M_PI; 
 double err_est;
 int err_code;
@@ -518,8 +515,8 @@ List Derivs() {
 
 
 // function to implement RK4 integration (non-void)
-List RK4(NumericMatrix male_states, NumericMatrix female_states){
-
+List RK4(NumericMatrix male_states, NumericMatrix female_states, double stepsize){
+  
   // set current states in a temporary matrix (use Rcpp::clone() to ensure changes in tmp states don't affect states)
   tmp_male_states   = Rcpp::clone(male_states);
   tmp_female_states = Rcpp::clone(female_states);
@@ -726,7 +723,7 @@ void DynamickPostTreatment() {
 
 
 // [[Rcpp::export]]
-List RunModel(NumericVector theta, int runtime, int alltimes, 
+List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes, 
               NumericVector tx_pars, NumericVector tx_times, NumericVector coverage_data) {
   
   //define parameters to be varied
@@ -858,7 +855,7 @@ List RunModel(NumericVector theta, int runtime, int alltimes,
     time_out[h] = h*stepsize;
       
     // perform RK4 integration & store updated state variables
-    List updated_states   = RK4(male_states, female_states);
+    List updated_states   = RK4(male_states, female_states, stepsize);
     updated_male_states   = as<NumericMatrix>(updated_states["updated_male_states"]);
     updated_female_states = as<NumericMatrix>(updated_states["updated_female_states"]);
 

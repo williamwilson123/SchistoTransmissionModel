@@ -5,7 +5,7 @@ rcpp_hello_world <- function() {
     .Call(`_SchistoTransmissionModel_rcpp_hello_world`)
 }
 
-RunModel <- function(theta, runtime, alltimes, tx_pars, tx_times, coverage_data) {
-    .Call(`_SchistoTransmissionModel_RunModel`, theta, runtime, alltimes, tx_pars, tx_times, coverage_data)
+RunModel <- function(theta, runtime, stepsize, alltimes, tx_pars, tx_times, coverage_data) {
+    .Call(`_SchistoTransmissionModel_RunModel`, theta, runtime, stepsize, alltimes, tx_pars, tx_times, coverage_data)
 }
 

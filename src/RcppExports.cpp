@@ -22,25 +22,26 @@ BEGIN_RCPP
 END_RCPP
 }
 // RunModel
-List RunModel(NumericVector theta, int runtime, int alltimes, NumericVector tx_pars, NumericVector tx_times, NumericVector coverage_data);
-RcppExport SEXP _SchistoTransmissionModel_RunModel(SEXP thetaSEXP, SEXP runtimeSEXP, SEXP alltimesSEXP, SEXP tx_parsSEXP, SEXP tx_timesSEXP, SEXP coverage_dataSEXP) {
+List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes, NumericVector tx_pars, NumericVector tx_times, NumericVector coverage_data);
+RcppExport SEXP _SchistoTransmissionModel_RunModel(SEXP thetaSEXP, SEXP runtimeSEXP, SEXP stepsizeSEXP, SEXP alltimesSEXP, SEXP tx_parsSEXP, SEXP tx_timesSEXP, SEXP coverage_dataSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericVector >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< int >::type runtime(runtimeSEXP);
+    Rcpp::traits::input_parameter< double >::type stepsize(stepsizeSEXP);
     Rcpp::traits::input_parameter< int >::type alltimes(alltimesSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type tx_pars(tx_parsSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type tx_times(tx_timesSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type coverage_data(coverage_dataSEXP);
-    rcpp_result_gen = Rcpp::wrap(RunModel(theta, runtime, alltimes, tx_pars, tx_times, coverage_data));
+    rcpp_result_gen = Rcpp::wrap(RunModel(theta, runtime, stepsize, alltimes, tx_pars, tx_times, coverage_data));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_SchistoTransmissionModel_rcpp_hello_world", (DL_FUNC) &_SchistoTransmissionModel_rcpp_hello_world, 0},
-    {"_SchistoTransmissionModel_RunModel", (DL_FUNC) &_SchistoTransmissionModel_RunModel, 6},
+    {"_SchistoTransmissionModel_RunModel", (DL_FUNC) &_SchistoTransmissionModel_RunModel, 7},
     {NULL, NULL, 0}
 };
 
