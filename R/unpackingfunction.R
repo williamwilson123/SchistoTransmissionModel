@@ -1,4 +1,4 @@
-#' Run the transmission model and unpack the results
+#' Run the transmission model
 #'
 #' @param theta named vector of model parameters; see description for details of elements
 #' @param runtime model run time, in years

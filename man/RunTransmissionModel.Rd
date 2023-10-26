@@ -2,7 +2,7 @@
 % Please edit documentation in R/unpackingfunction.R
 \name{RunTransmissionModel}
 \alias{RunTransmissionModel}
-\title{Run the transmission model and unpack the results}
+\title{Run the transmission model}
 \usage{
 RunTransmissionModel(
   theta,

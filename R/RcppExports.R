@@ -2,6 +2,6 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 RunModel <- function(theta, runtime, stepsize, alltimes, tx_pars, tx_times, coverage_data) {
-    .Call('_SchistoTransmissionModel_RunModel', PACKAGE = 'SchistoTransmissionModel', theta, runtime, stepsize, alltimes, tx_pars, tx_times, coverage_data)
+    .Call(`_SchistoTransmissionModel_RunModel`, theta, runtime, stepsize, alltimes, tx_pars, tx_times, coverage_data)
 }
 

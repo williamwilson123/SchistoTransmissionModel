@@ -1035,6 +1035,8 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
     return Rcpp::List::create(
       Rcpp::Named("age_out") = Rcpp::List::create(
           Rcpp::Named("age") = age,
+          Rcpp::Named("epg_age_male") = epg_age_male_out,
+          Rcpp::Named("epg_age_female") = epg_age_female_out,
           Rcpp::Named("worm_burden_age_male") = worm_burden_age_male_out,
           Rcpp::Named("worm_burden_age_female") = worm_burden_age_female_out,
           Rcpp::Named("cumulative_worms_age_female") = cumulative_worms_age_female_out,
