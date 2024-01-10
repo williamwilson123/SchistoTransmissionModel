@@ -70,7 +70,7 @@ NumericVector mating_probability_male(na), mating_probability_female(na);
 
 // tolerance measure to check derivatives by end of simulation are near 0
 NumericVector row_tol_female(na), row_tol_male(na);
-NumericVector col_tol_female(nw+1), col_tol_male(nw+1);
+NumericVector col_tol_female(nw+2), col_tol_male(nw+2);
 NumericVector tol(4);
 double tol_out = 0;
 
@@ -100,7 +100,7 @@ double dead_worms;
 double wormk;
 
 // age-dependent force of infection for males and females
-NumericVector infect_snails_female(na), infect_snails_male(na);
+NumericVector FoI_female(na), FoI_male(na);
 
 // define state variable matrices (where nw+1 counts dead worms & nw+2 counts cumulative experience of live worms)
 NumericMatrix male_states(na, nw+2), updated_male_states(na,nw+2), female_states(na, nw+2), updated_female_states(na,nw+2);
@@ -119,7 +119,7 @@ NumericVector male_acquired_immunity(na), female_acquired_immunity(na);
 NumericMatrix dWdt_male(na, nw+2), dWdt_female(na,nw+2); //+1 for dead W, +2 for cumulative W
 
 // define matrices for RK4 integration
-NumericMatrix k1_male(na,nw+2), k1_female(na,nw+2), k2_male(na,nw+2), 
+NumericMatrix k1_male(na,nw+2), k1_female(na,nw+2), k2_male(na,nw+2),
 k2_female(na,nw+2), k3_male(na,nw+2), k3_female(na,nw+2), k4_male(na,nw+2), k4_female(na,nw+2);
 
 // create vectors to store no. worms killed via treatment
@@ -272,34 +272,19 @@ void WormBurden() {
 }
 
 
-// Function to calculate age & sex-specific cumulative worm burdens ------------
+// Function to calculate cumulative worm burden --------------------------------
 void CumulativeWormBurden() {
-  
-  // by age
-  double accmale_age   = 0;
-  double accfemale_age = 0;
-  
-  for(int i = 0; i < na; i++) {
-    accmale_age   += male_states(i,nw+1);
-    accfemale_age += female_states(i,nw+1);
-    cumulative_worms_age_male[i]   = accmale_age;
-    cumulative_worms_age_female[i] = accfemale_age;
-  }
-  
-  // by sex
   double acc_worm_burden_male   = 0;
   double acc_worm_burden_female = 0;
-  
+
   for(int i = 0; i < na; i++) {
-    acc_worm_burden_male   += cumulative_worms_age_male[i]*demographic_weights[i];
-    acc_worm_burden_female += cumulative_worms_age_female[i]*demographic_weights[i];
+    acc_worm_burden_male   += male_states(i,nw+1)   * demographic_weights[i];
+    acc_worm_burden_female += female_states(i,nw+1) * demographic_weights[i];
+    cumulative_worms_age_male[i]   = male_states(i,nw+1);
+    cumulative_worms_age_female[i] = female_states(i,nw+1);
   }
-  cumulative_worms_male   = acc_worm_burden_male;
-  cumulative_worms_female = acc_worm_burden_female;
-  
-  // total population
-  cumulative_worms = prop_female * cumulative_worms_female + prop_male * cumulative_worms_male;
-  
+  //total population
+  cumulative_worms = prop_male*acc_worm_burden_male + prop_female*acc_worm_burden_female;
 }
 
 
@@ -452,17 +437,18 @@ List Derivs() {
 
   net_contamination = acc_net_contamination;
 
+  // calculate the force of infection
   for (int i = 0; i < na; i++) {
-    infect_snails_female[i] = (R0*muS*normalised_female_exposure[i] * net_contamination * exp(-protection_immunity * female_acquired_immunity[i])) / (rho * pow(R0,R0_weight) * NhNs * net_contamination + muS/muW);
-    infect_snails_male[i]   = (R0*muS*normalised_male_exposure[i]   * net_contamination * exp(-protection_immunity * male_acquired_immunity[i]  )) / (rho * pow(R0,R0_weight) * NhNs * net_contamination + muS/muW);
+    FoI_female[i] = (R0*muS*normalised_female_exposure[i] * net_contamination * exp(-protection_immunity * female_acquired_immunity[i])) / (rho * pow(R0,R0_weight) * NhNs * net_contamination + muS/muW);
+    FoI_male[i]   = (R0*muS*normalised_male_exposure[i]   * net_contamination * exp(-protection_immunity * male_acquired_immunity[i]  )) / (rho * pow(R0,R0_weight) * NhNs * net_contamination + muS/muW);
   }
 
-  double acc_infect_snails_female;
-  double acc_infect_snails_male;
+  double acc_FoI_female;
+  double acc_FoI_male;
   
   for(int i = 0; i < na; i++){
-    acc_infect_snails_female += infect_snails_female[i];
-    acc_infect_snails_male   += infect_snails_male[i];
+    acc_FoI_female += FoI_female[i];
+    acc_FoI_male   += FoI_male[i];
   }
 
   // differential equations
@@ -472,13 +458,13 @@ List Derivs() {
       if (j == 0) {  //first worm group
         if (i == 0) {
           // first age group
-          dWdt_male(i,j)   = infect_snails_male[i]   - (nw*muW+da)*tmp_male_states(i,j);
-          dWdt_female(i,j) = infect_snails_female[i] - (nw*muW+da)*tmp_female_states(i,j);
+          dWdt_male(i,j)   = FoI_male[i]   - (nw*muW+da)*tmp_male_states(i,j);
+          dWdt_female(i,j) = FoI_female[i] - (nw*muW+da)*tmp_female_states(i,j);
 
         } else {
           // subsequent age groups
-          dWdt_male(i,j)   = infect_snails_male[i]   - (nw*muW+da)*tmp_male_states(i,j)   + da*tmp_male_states(i-1,j);
-          dWdt_female(i,j) = infect_snails_female[i] - (nw*muW+da)*tmp_female_states(i,j) + da*tmp_female_states(i-1,j);
+          dWdt_male(i,j)   = FoI_male[i]   - (nw*muW+da)*tmp_male_states(i,j)   + da*tmp_male_states(i-1,j);
+          dWdt_female(i,j) = FoI_female[i] - (nw*muW+da)*tmp_female_states(i,j) + da*tmp_female_states(i-1,j);
         }
 
       } else if (j > 0 & j < nw) {  //subsequent worm groups
@@ -502,9 +488,17 @@ List Derivs() {
           dWdt_male(i,j)   = nw*muW*tmp_male_states(i,j-1) + da*tmp_male_states(i-1,j) - da*tmp_male_states(i,j);
           dWdt_female(i,j) = nw*muW*tmp_female_states(i,j-1) + da*tmp_female_states(i-1,j) - da*tmp_female_states(i,j);
         }
+      
       } else if (j == nw+1) {  //cumulative worm group
-        dWdt_male(i,j)   = infect_snails_male[i]   - da*tmp_male_states(i,j);
-        dWdt_female(i,j) = infect_snails_female[i] - da*tmp_female_states(i,j);
+        if (i == 0) {
+          // first age group
+          dWdt_male(i,j)   = nw*muW*tmp_male_states(i,nw-1) - da*tmp_male_states(i,nw-1);
+          dWdt_female(i,j) = nw*muW*tmp_female_states(i,nw-1) - da*tmp_female_states(i,nw-1);
+        } else {
+          // subsequent age groups
+          dWdt_male(i,j)   = nw*muW*tmp_male_states(i,nw-1) + da*tmp_male_states(i-1,j) - da*tmp_male_states(i,j);
+          dWdt_female(i,j) = nw*muW*tmp_female_states(i,nw-1) + da*tmp_female_states(i-1,j) - da*tmp_female_states(i,j);
+        }
       }
 
     }
@@ -534,7 +528,6 @@ List RK4(NumericMatrix male_states, NumericMatrix female_states, double stepsize
   k1_female = Rcpp::clone(as<NumericMatrix>(derivs_result1["dWdt_female"]));
 
   for (int i = 0; i < na; i++) {
-    // for (int j = 0; j < (nw+1); j++) {
     for (int j = 0; j < (nw+2); j++) {
       // move temporary matrices on by stepsize/2
       tmp_male_states(i,j) = male_states(i,j) + (static_cast<double>(stepsize)/2)*k1_male(i,j);
@@ -1017,7 +1010,7 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
     row_tol_female[i] = max(abs(dWdt_female(i,_)));
     row_tol_male[i]   = max(abs(dWdt_male(i,_)));
   }
-  for (int j = 0; j < (nw+1); j++) {
+  for (int j = 0; j < (nw+2); j++) {
     col_tol_female[j] = max(abs(dWdt_female(_,j)));
     col_tol_male[j]   = max(abs(dWdt_male(_,j)));
   }
@@ -1041,6 +1034,8 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
           Rcpp::Named("worm_burden_age_female") = worm_burden_age_female_out,
           Rcpp::Named("cumulative_worms_age_female") = cumulative_worms_age_female_out,
           Rcpp::Named("cumulative_worms_age_male") = cumulative_worms_age_male_out,
+          Rcpp::Named("dead_worms_age_female") = dead_worms_female_out,
+          Rcpp::Named("dead_worms_age_male") = dead_worms_male_out,
           Rcpp::Named("prevalence_age_male") = prevalence_age_male_out,
           Rcpp::Named("prevalence_age_female") = prevalence_age_female_out,
           Rcpp::Named("IgE_age_male") = ige_age_male_out,
