@@ -11,16 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// rcpp_hello_world
-List rcpp_hello_world();
-RcppExport SEXP _SchistoTransmissionModel_rcpp_hello_world() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(rcpp_hello_world());
-    return rcpp_result_gen;
-END_RCPP
-}
 // RunModel
 List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes, NumericVector tx_pars, NumericVector tx_times, NumericVector coverage_data);
 RcppExport SEXP _SchistoTransmissionModel_RunModel(SEXP thetaSEXP, SEXP runtimeSEXP, SEXP stepsizeSEXP, SEXP alltimesSEXP, SEXP tx_parsSEXP, SEXP tx_timesSEXP, SEXP coverage_dataSEXP) {
@@ -40,7 +30,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SchistoTransmissionModel_rcpp_hello_world", (DL_FUNC) &_SchistoTransmissionModel_rcpp_hello_world, 0},
     {"_SchistoTransmissionModel_RunModel", (DL_FUNC) &_SchistoTransmissionModel_RunModel, 7},
     {NULL, NULL, 0}
 };
