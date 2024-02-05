@@ -48,16 +48,14 @@ double err_est;
 int err_code;
 double res;  // for mating probability integration
 const double tolerance = 1e-5; //tolerance for floating point comparisons
-int coverage_index = 0;       //to locate time-specific coverage data during MDA
 
 // define parameters that are assigned values at run time
 int nsteps;
 double R0, R0_weight, NhNs, kW, decay_immunity, protection_immunity, epg_constant, ige_constant;
 
 // treatment parameters
-int toggle_tx, toggle_covdat, n_tx, min_tx_age, max_tx_age;
+int input_tx_times, toggle_tx, n_tx, min_tx_age, max_tx_age;
 double start_tx, freq_tx, coverage, efficacy;
-double tx_coverage;  //for storing time-specific coverage in time for-loop
 double cov_weight;
 NumericVector age_specific_cov(na); //age-specific coverage
 
@@ -76,7 +74,7 @@ double tol_out = 0;
 
 // define global storage vectors and scales
 NumericVector age(na);                                                                      // age mid points
-NumericVector demographic_weights(na);                                                     // demographic weights
+NumericVector demographic_weights(na), demographic_weights_SAC(na);                                                     // demographic weights
 NumericVector normalised_female_exposure(na), normalised_male_exposure(na);                // normalized female/male exposure
 NumericVector worm_burden_age_female(na), worm_burden_age_male(na);                       // age-dependent female/male worm burdens
 NumericVector worm_burden_age_female_equib(na), worm_burden_age_female_post(na), worm_burden_age_male_equib(na), worm_burden_age_male_post(na);
@@ -90,8 +88,8 @@ double cumulative_worms_male, cumulative_worms_female;
 double cumulative_worms;
 NumericVector psi_female_age(na), psi_male_age(na);                                         // age-dependent contamination 
 double net_contamination;                                                                   // net contaimation
-NumericVector epg_age_male(na), epg_age_female(na), epg_age_male_SAC(na), epg_age_female_SAC(na);
-NumericVector prevalence_age_female(na), prevalence_age_male(na), prevalence_age_female_SAC(na), prevalence_age_male_SAC(na);
+NumericVector epg_age_male(na), epg_age_female(na);
+NumericVector prevalence_age_female(na), prevalence_age_male(na);
 NumericVector ige_age_male(na), ige_age_female(na);
 double epg_male, epg_female, epg, epg_male_SAC, epg_female_SAC, epg_SAC;
 double prevalence_male, prevalence_female, prevalence, prevalence_male_SAC, prevalence_female_SAC, prevalence_SAC;
@@ -125,8 +123,8 @@ k2_female(na,nw+2), k3_male(na,nw+2), k3_female(na,nw+2), k4_male(na,nw+2), k4_f
 // create vectors to store no. worms killed via treatment
 NumericVector summed_male_killed_worms(na), summed_female_killed_worms(na); 
 
-// create vector to store treatment times & MDA coverage values
-NumericVector treatment_times(n_tx), coverage_data(n_tx); 
+// create vector to store treatment times
+NumericVector treatment_times(n_tx); 
 
 
 //------------------------------------------------------------------------------
@@ -145,15 +143,38 @@ void AgeMidpoints() {
 
 // Function to calculate demographic weights -----------------------------------
 void DemographicWeights() {
+  
+  // For all ages -----
   for(int i = 0; i < na; i++) {
     double ageplus = age[i] + 0.5*aged;
     double ageminus = age[i] - 0.5*aged;
     demographic_weights[i] = (R::pweibull(ageplus, shape, scale,1,0) -
       R::pweibull(ageminus, shape, scale,1,0)) / R::pweibull(amax,  shape,  scale,1,0);
   }
+  
+  // For SAC -----
+  
+  // initialise storage objects
+  double acc_demog_weights_SAC = 0;
+
+  // sum values of demographic weights in SAC age range (to use for normalisation)
+  for (int i = min(sac_indices); i <= max(sac_indices); i++) {
+    acc_demog_weights_SAC += demographic_weights[i];
+  }
+  
+  // calculate normalised demographic weights for SAC
+  for (int i = 0; i < na; i++) {
+    if (i < min(sac_indices) | i > max(sac_indices)){
+      demographic_weights_SAC[i] = 0;
+    } else {
+      demographic_weights_SAC[i] = demographic_weights[i]/acc_demog_weights_SAC;
+    }
+  }
+  
 }
 
-// Function to calculate normalized exposure -----------------------------------
+
+// Function to calculate normalised exposure -----------------------------------
 void NormalisedExposure() {
   
   NumericVector female_exposure(na), male_exposure(na);
@@ -192,12 +213,8 @@ void InitialiseEverything() {
     dead_worms_male[i] = 0;
     epg_age_female[i] = 0;
     epg_age_male[i] = 0;
-    epg_age_female_SAC[i] = 0;
-    epg_age_male_SAC[i] = 0;
     prevalence_age_female[i] = 0;
     prevalence_age_male[i] = 0;
-    prevalence_age_female_SAC[i] = 0;
-    prevalence_age_male_SAC[i] = 0;
     ige_age_female[i] = 0;
     ige_age_male[i] = 0;
     cumulative_worms_age_female[i] = 0;
@@ -295,10 +312,6 @@ void EPG(){
     epg_age_female[i] = worm_burden_age_female[i]*mating_probability_female[i]*epg_constant;
     epg_age_male[i] = worm_burden_age_male[i]*mating_probability_male[i]*epg_constant;
   }
-  for (int i=5; i<15; i++) { // school-aged children
-    epg_age_female_SAC[i] = epg_age_female[i];
-    epg_age_male_SAC[i] = epg_age_male[i];
-  }
   
   // by sex
   double acc_epg_male = 0;
@@ -307,11 +320,12 @@ void EPG(){
   double acc_epg_female_SAC = 0;
   
   for (int i = 0; i < na; i++) {
-    acc_epg_male += epg_age_male[i]*demographic_weights[i];
+    acc_epg_male   += epg_age_male[i]*demographic_weights[i];
     acc_epg_female += epg_age_female[i]*demographic_weights[i];
-    acc_epg_male_SAC += epg_age_female_SAC[i]*demographic_weights[i];
-    acc_epg_female_SAC += epg_age_male_SAC[i]*demographic_weights[i];
+    acc_epg_male_SAC   += epg_age_male[i]  *demographic_weights_SAC[i];
+    acc_epg_female_SAC += epg_age_female[i]*demographic_weights_SAC[i];
   }
+  
   epg_male = acc_epg_male;
   epg_female = acc_epg_female;
   epg_male_SAC = acc_epg_male_SAC;
@@ -327,16 +341,11 @@ void EPG(){
 void Prevalence() {
   // by age
   // calculate probability of 0 eggs
-    prevalence_age_female = pnbinom_func(0, Named("size")=kW_age_female, _["mu"]=epg_age_female);
-    prevalence_age_male   = pnbinom_func(0, Named("size")=kW_age_male,   _["mu"]=epg_age_male);
+  prevalence_age_female = pnbinom_func(0, Named("size")=kW_age_female, _["mu"]=epg_age_female);
+  prevalence_age_male   = pnbinom_func(0, Named("size")=kW_age_male,   _["mu"]=epg_age_male);
   // calculate 1 minus that probability to get prevalence
   prevalence_age_female = 1 - prevalence_age_female;
   prevalence_age_male   = 1 - prevalence_age_male;
-  // calculate prevalence in school-aged children
-  for (int i=5; i<15; i++) { 
-    prevalence_age_female_SAC[i] = prevalence_age_female[i];
-    prevalence_age_male_SAC[i] = prevalence_age_male[i];
-  }
   
   //by sex
   double acc_prevalence_male = 0; 
@@ -347,8 +356,8 @@ void Prevalence() {
   for(int i = 0; i < na; i++) {
     acc_prevalence_male += prevalence_age_male[i]*demographic_weights[i];
     acc_prevalence_female += prevalence_age_female[i]*demographic_weights[i];
-    acc_prevalence_male_SAC += prevalence_age_female_SAC[i]*demographic_weights[i];
-    acc_prevalence_female_SAC += prevalence_age_male_SAC[i]*demographic_weights[i];
+    acc_prevalence_male_SAC   += prevalence_age_male[i]  *demographic_weights_SAC[i];
+    acc_prevalence_female_SAC += prevalence_age_female[i]*demographic_weights_SAC[i];
   }
   prevalence_male = acc_prevalence_male;
   prevalence_female = acc_prevalence_female;
@@ -362,7 +371,7 @@ void Prevalence() {
 
 
 // Function to calculate IgE from acquired immunity variable -------------------
-void IgE(){
+void IgE() {
   // by age
   for (int i = 0; i < na; i++) {
     ige_age_female[i] = female_acquired_immunity[i]*ige_constant;
@@ -636,6 +645,25 @@ NumericVector WeightCoverage(double cov_weight, double coverage, IntegerVector s
 }
 
 
+// Function to calculate treatment event times ---------------------------------
+NumericVector CalculateTreatmentTimes(NumericVector tx_pars) {
+  
+  // Extract treatment parameters from vector
+  double start_tx = tx_pars["start_tx"];
+  double n_tx     = tx_pars["n_tx"];
+  double freq_tx  = tx_pars["freq_tx"];
+  
+  // Calculate treatment times with non-integer step interval
+  NumericVector treatment_times(n_tx);
+  for (int i = 0; i < n_tx; i++) {
+    treatment_times[i] = start_tx + i * freq_tx;
+  }
+  
+  return treatment_times;
+  
+}
+
+
 // Function to simulate community treatment  -----------------------------------
 void TreatmentEvent() {
   
@@ -727,8 +755,8 @@ void DynamickPostTreatment() {
 //------------------------------------------------------------------------------
 
 // [[Rcpp::export]]
-List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes, 
-              NumericVector tx_pars, NumericVector tx_times, NumericVector coverage_data) {
+List RunModel(NumericVector theta, NumericVector tx_pars, int runtime, 
+              double stepsize, NumericVector tx_times) {
   
   // Define parameters to be varied
   R0                  = std::exp(theta["R0"]);
@@ -741,28 +769,39 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
   ige_constant        = std::exp(theta["ige_constant"]);
   
   // Define treatment-related parameters
-  toggle_tx     = tx_pars["toggle_tx"]; //toggle for treatment on (1) or off (0)
-  toggle_covdat = tx_pars["toggle_covdat"]; //toggle for MDA times & coverage informed by data (1) or by user (0)
-  start_tx      = tx_pars["start_tx"]; //model time to start treatments
-  n_tx          = tx_pars["n_tx"]; //no. treatment events (when toggle_covdat == 0)
-  freq_tx       = tx_pars["freq_tx"]; //no. years btwn multiple treatment events (when toggle_covdat == 0)
-  coverage      = tx_pars["coverage"]; //treatment coverage (when toggle_covdat == 0)
-  efficacy      = tx_pars["efficacy"]; //treatment efficacy
-  min_tx_age    = tx_pars["min_tx_age"]; //minimum treatment age 
-  max_tx_age    = tx_pars["max_tx_age"]; //maximum treatment age
-  cov_weight    = tx_pars["cov_weight"]; //weighting of coverage (0, coverage only in SAC & 1, coverage only in adults)
+  input_tx_times = tx_pars["input_tx_times"]; //toggle for user inputting of treatment times (1) or calculation from input parameters (0)
+  toggle_tx      = tx_pars["toggle_tx"];      //toggle for treatment on (1) or off (0)
+  start_tx       = tx_pars["start_tx"];       //model time to start treatments
+  n_tx           = tx_pars["n_tx"];           //no. treatment events
+  freq_tx        = tx_pars["freq_tx"];        //no. years btwn multiple treatment events
+  coverage       = tx_pars["coverage"];       //treatment coverage
+  efficacy       = tx_pars["efficacy"];       //treatment efficacy
+  min_tx_age     = tx_pars["min_tx_age"];     //minimum treatment age 
+  max_tx_age     = tx_pars["max_tx_age"];     //maximum treatment age
+  cov_weight     = tx_pars["cov_weight"];     //weighting of coverage (0, coverage only in SAC & 1, coverage only in adults)
   
   // if treatment model toggled on
   if (toggle_tx == 1) {
     
-    // get treatment times
-    treatment_times = Rcpp::clone(tx_times);
+    // Get treatment times
+    if (input_tx_times == 0) {
+      // Calculate treatment times from input parameters
+      treatment_times = CalculateTreatmentTimes(tx_pars);
+    } else {
+      // Store treatment times from user-inputted vector 
+      treatment_times = Rcpp::clone(tx_times);
+    }
     
-    // error handling for treatment times
-    for (int m = 0; m < treatment_times.size(); m++) {
-      if (std::remainder(treatment_times[m], stepsize) > tolerance) {
+    // Error handling: does stepsize divide evenly into treatment times vector?
+    for (int i = 0; i < treatment_times.size(); i++) {
+      if (std::remainder(treatment_times[i], stepsize) > tolerance) {
         Rcpp::stop("Treatment event time is not a multiple of stepsize");
       }
+    }
+    
+    // Error handling: does model run time extend past final treatment time?
+    if (max(treatment_times) > runtime) {
+      Rcpp::stop("Treatments run longer than simulation time");
     }
     
   }
@@ -770,28 +809,32 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
   // calculate number of time steps
   nsteps = static_cast<int>(runtime/stepsize);  //force nsteps to be integer
   
-  // error handling for model run time
+  //  Error handling: does stepsize divide evenly into model run time?
   if (std::remainder(runtime, stepsize) > tolerance) { 
     Rcpp::stop("Model stepsize does not divide evenly into model run time");
   }
   
-  // storage vector for output (defined here once no. time steps assigned a value)
+  // Define storage objects for output
+  
+  // Age-averaged time-specific outputs
   NumericVector worm_burden_out(nsteps);
   NumericVector cumulative_worms_out(nsteps);
+  NumericVector time_out(nsteps);
+  NumericVector epg_out(nsteps), epg_SAC_out(nsteps), prevalence_out(nsteps), prevalence_SAC_out(nsteps), ige_out(nsteps), dead_worms_out(nsteps);
+  NumericVector kW_out(nsteps), kW_female_out(nsteps), kW_male_out(nsteps);
+  
+  // Age- & time-specific outputs
   NumericMatrix cumulative_worms_age_female_out(nsteps, na), cumulative_worms_age_male_out(nsteps, na);
   NumericMatrix worm_burden_age_female_out(nsteps, na), worm_burden_age_male_out(nsteps, na);
   NumericMatrix male_acquired_immunity_out(nsteps, na), female_acquired_immunity_out(nsteps, na);
-  NumericVector time_out(nsteps);
   NumericMatrix dead_worms_male_out(nsteps, na), dead_worms_female_out(nsteps, na);
   NumericMatrix mating_prob_male_out(nsteps, na), mating_prob_female_out(nsteps, na);
-  NumericMatrix epg_age_male_out(nsteps, na), epg_age_female_out(nsteps, na), epg_age_male_SAC_out(nsteps, na), epg_age_female_SAC_out(nsteps, na);
+  NumericMatrix epg_age_male_out(nsteps, na), epg_age_female_out(nsteps, na);
   NumericMatrix prevalence_age_male_out(nsteps, na), prevalence_age_female_out(nsteps, na);
   NumericMatrix ige_age_male_out(nsteps, na), ige_age_female_out(nsteps, na);
-  NumericVector epg_out(nsteps), epg_SAC_out(nsteps), prevalence_out(nsteps), prevalence_SAC_out(nsteps), ige_out(nsteps), dead_worms_out(nsteps);
-  NumericVector kW_out(nsteps), kW_female_out(nsteps), kW_male_out(nsteps);
   NumericMatrix kW_female_age_out(nsteps, na), kW_male_age_out(nsteps, na);
 
-  // initialize k parameters
+  // initialize among-host worm overdisperion (k) parameters
   kW_female = kW; //all females
   kW_male   = kW; //all males
   wormk     = kW; //overall population
@@ -801,7 +844,7 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
     kW_age_male[i]   = kW;
   }
   
-  // run initialization functions
+  // Run initialization functions
   // age midpoints
   AgeMidpoints();
   // demographic weights
@@ -842,8 +885,6 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
   mating_prob_male_out(0,_) = mating_probability_male;
   epg_age_male_out(0,_) = epg_age_male;
   epg_age_female_out(0,_) = epg_age_female;
-  epg_age_male_SAC_out(0,_) = epg_age_male_SAC;
-  epg_age_female_SAC_out(0,_) = epg_age_female_SAC;
   prevalence_age_male_out(0,_) = prevalence_age_male;
   prevalence_age_female_out(0,_) = prevalence_age_female;
   ige_age_male_out(0,_) = ige_age_male;
@@ -872,11 +913,8 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
     // Treatment toggled on
     if (toggle_tx == 1) {
       
-      // before first treatment event (-1 is arbitrary)
+      // timestep before first treatment event
       if (time_out[h] == treatment_times[0]-1) {
-        
-        // ensure coverage index initialised to 0
-        coverage_index = 0;
         
         // For dynamic k: get worm burden @ equilibrium
         for (int i = 0; i < na; i++) {
@@ -889,20 +927,9 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
         
         // check if current time matches a treatment time (using Rcpp sugar syntax)
         if ( is_true(any( Rcpp::abs(time_out[h] - treatment_times) < tolerance )) ) {
-
-          if (toggle_covdat == 0) {
-            
-            // treat the population
-            TreatmentEvent();
-
-          } else {
-            // get time-specific coverage
-            tx_coverage = coverage_data[coverage_index];
-            // treat the population
-            TreatmentEvent();
-            // update the coverage index for next treatment event 
-            coverage_index += 1;
-          }
+          
+          // treat the population
+          TreatmentEvent();
           
           // update states after treatment
           UpdateStates();
@@ -929,7 +956,7 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
     // incident worm burden
     worm_burden_out[h] = worm_burden;
     worm_burden_age_female_out(h,_) = worm_burden_age_female;
-    worm_burden_age_male_out(h,_) = worm_burden_age_male;
+    worm_burden_age_male_out(h,_)   = worm_burden_age_male;
     
     // Calculate & store cumulative worm burden
     CumulativeWormBurden();
@@ -950,24 +977,22 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
     epg_out[h] = epg;
     epg_SAC_out[h] = epg_SAC;
     epg_age_female_out(h,_) = epg_age_female;
-    epg_age_male_out(h,_) = epg_age_male;
-    
+    epg_age_male_out(h,_)   = epg_age_male;
+
     // save NBD shape parameter to output
     kW_out[h] = wormk;
-    kW_female_age_out(h,_)= kW_age_female;
-    kW_male_age_out(h,_)  = kW_age_male;
-    kW_female_out[h]= kW_female;
-    kW_male_out[h]  = kW_male;
+    kW_female_age_out(h,_) = kW_age_female;
+    kW_male_age_out(h,_)   = kW_age_male;
+    kW_female_out[h] = kW_female;
+    kW_male_out[h]   = kW_male;
     
     // calculate updated prevalence & write to output matrices
-    prevalence_out[h] = prevalence;
+    prevalence_out[h]     = prevalence;
     prevalence_SAC_out[h] = prevalence_SAC;
     prevalence_age_female_out(h,_) = prevalence_age_female;
-    prevalence_age_male_out(h,_) = prevalence_age_male;
-   
-    // calculated updated acquired immunity (by direct integration over past dead worms)
-    // can change immunological stimulus to current worms by dead_worms_X_out -> worm_burden_age_X
-    // required before IgE update
+    prevalence_age_male_out(h,_)   = prevalence_age_male;
+    
+    // calculate acquired immunity (by direct integration over past dead worms); required before IgE update
     for (int i = 0; i < na; i++) {
       // set accumulators
       double acc_male_acquired_immunity   = 0;
@@ -1022,66 +1047,46 @@ List RunModel(NumericVector theta, int runtime, double stepsize, int alltimes,
   
   tol_out = max(tol);
   
-  // return all outputs over time
-  if (alltimes == 1) { 
-    //use nested sub-lists as work-around for Rcpp's 20-item list limit
-    return Rcpp::List::create(
-      Rcpp::Named("age_out") = Rcpp::List::create(
-          Rcpp::Named("age") = age,
-          Rcpp::Named("epg_age_male") = epg_age_male_out,
-          Rcpp::Named("epg_age_female") = epg_age_female_out,
-          Rcpp::Named("worm_burden_age_male") = worm_burden_age_male_out,
-          Rcpp::Named("worm_burden_age_female") = worm_burden_age_female_out,
-          Rcpp::Named("cumulative_worms_age_female") = cumulative_worms_age_female_out,
-          Rcpp::Named("cumulative_worms_age_male") = cumulative_worms_age_male_out,
-          Rcpp::Named("dead_worms_age_female") = dead_worms_female_out,
-          Rcpp::Named("dead_worms_age_male") = dead_worms_male_out,
-          Rcpp::Named("prevalence_age_male") = prevalence_age_male_out,
-          Rcpp::Named("prevalence_age_female") = prevalence_age_female_out,
-          Rcpp::Named("IgE_age_male") = ige_age_male_out,
-          Rcpp::Named("IgE_age_female") = ige_age_female_out,
-          Rcpp::Named("kW_age_female") = kW_female_age_out,
-          Rcpp::Named("kW_age_male") = kW_male_age_out
-        ), 
-        Rcpp::Named("time_out") = Rcpp::List::create(
-          Rcpp::Named("time") = time_out,
-          Rcpp::Named("worm_burden") = worm_burden_out,
-          Rcpp::Named("cumulative_worm_burden") = cumulative_worms_out,
-          Rcpp::Named("epg") = epg_out,
-          Rcpp::Named("prevalence") = prevalence_out,
-          Rcpp::Named("IgE") = ige_out,
-          Rcpp::Named("cumulative_dead_worms_female") = dead_worms_female_out,
-          Rcpp::Named("cumulative_dead_worms_male") = dead_worms_male_out,
-          Rcpp::Named("dead_worms") = dead_worms_out,
-          Rcpp::Named("kW_female") = kW_female_out,
-          Rcpp::Named("kW_male") = kW_male_out,
-          Rcpp::Named("kW") = kW_out
-        )
-      );
+  
+  // Return outputs
+  return Rcpp::List::create( //nested sub-lists because of Rcpp's 20-item limit
     
-    // return outputs only at last timepoint
-  } else if (alltimes == 0) {  
-    int l = nsteps -1;
-    return Rcpp::List::create(
-      Rcpp::Named("time") = time_out(l),
-      Rcpp::Named("worm_burden") = worm_burden_out(l),
-      Rcpp::Named("epg") = epg_out(l),
-      Rcpp::Named("worm_burden_age_male") = worm_burden_age_male_out(l,_),
-      Rcpp::Named("worm_burden_age_female") = worm_burden_age_female_out(l,_),
-      Rcpp::Named("cumulative_worms_age_female") = cumulative_worms_age_female_out(l,_),
-      Rcpp::Named("cumulative_worms_age_male") = cumulative_worms_age_male_out(l,_),
-      Rcpp::Named("epg_age_male") = epg_age_male_out(l,_),
-      Rcpp::Named("epg_age_female") = epg_age_female_out(l,_),
-      Rcpp::Named("acquired_immunity_male") = male_acquired_immunity_out(l,_),
-      Rcpp::Named("acquired_immunity_female") = female_acquired_immunity_out(l,_),
-      Rcpp::Named("IgE_age_male") = ige_age_male_out(l,_),
-      Rcpp::Named("IgE_age_female") = ige_age_female_out(l,_),
-      Rcpp::Named("cumulative_dead_worms_female") = dead_worms_female_out(l,_),
-      Rcpp::Named("cumulative_dead_worms_male") = dead_worms_male_out(l,_),
+    // age-specific outputs
+    Rcpp::Named("age_out") = Rcpp::List::create(
       Rcpp::Named("age") = age,
-      Rcpp::Named("mating_prob_male") = mating_prob_male_out(l,_),
-      Rcpp::Named("mating_prob_female") = mating_prob_female_out(l,_),
-      Rcpp::Named( "tol") = tol_out);
-  }
+      Rcpp::Named("epg_age_male")   = epg_age_male_out,
+      Rcpp::Named("epg_age_female") = epg_age_female_out,
+      Rcpp::Named("worm_burden_age_male")   = worm_burden_age_male_out,
+      Rcpp::Named("worm_burden_age_female") = worm_burden_age_female_out,
+      Rcpp::Named("cumulative_worms_age_female") = cumulative_worms_age_female_out,
+      Rcpp::Named("cumulative_worms_age_male")   = cumulative_worms_age_male_out,
+      Rcpp::Named("dead_worms_age_female") = dead_worms_female_out,
+      Rcpp::Named("dead_worms_age_male")   = dead_worms_male_out,
+      Rcpp::Named("prevalence_age_male")   = prevalence_age_male_out,
+      Rcpp::Named("prevalence_age_female") = prevalence_age_female_out,
+      Rcpp::Named("IgE_age_male")   = ige_age_male_out,
+      Rcpp::Named("IgE_age_female") = ige_age_female_out,
+      Rcpp::Named("kW_age_female") = kW_female_age_out,
+      Rcpp::Named("kW_age_male")   = kW_male_age_out
+    ), 
+    
+    // time-specific outputs
+    Rcpp::Named("time_out") = Rcpp::List::create(
+      Rcpp::Named("time") = time_out,
+      Rcpp::Named("worm_burden") = worm_burden_out,
+      Rcpp::Named("cumulative_worm_burden") = cumulative_worms_out,
+      Rcpp::Named("epg") = epg_out,
+      Rcpp::Named("epg_SAC") =  epg_SAC_out,
+      Rcpp::Named("prevalence") = prevalence_out,
+      Rcpp::Named("prevalence_SAC") = prevalence_SAC_out,
+      Rcpp::Named("IgE") = ige_out,
+      Rcpp::Named("cumulative_dead_worms_female") = dead_worms_female_out,
+      Rcpp::Named("cumulative_dead_worms_male") = dead_worms_male_out,
+      Rcpp::Named("dead_worms") = dead_worms_out,
+      Rcpp::Named("kW_female") = kW_female_out,
+      Rcpp::Named("kW_male") = kW_male_out,
+      Rcpp::Named("kW") = kW_out
+    )
+  );
   
 }

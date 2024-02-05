@@ -4,30 +4,18 @@
 \alias{RunTransmissionModel}
 \title{Run the transmission model}
 \usage{
-RunTransmissionModel(
-  theta,
-  runtime,
-  stepsize,
-  alltimes,
-  tx_pars,
-  tx_times,
-  coverage_data
-)
+RunTransmissionModel(theta, tx_pars, runtime, stepsize, tx_times)
 }
 \arguments{
 \item{theta}{named vector of model parameters; see description for details of elements}
+
+\item{tx_pars}{named vector of model parameters relevant to treatment}
 
 \item{runtime}{model run time, in years}
 
 \item{stepsize}{model stepsize (dt) in years. Relatively small step sizes (1/12 or less) are recommended to avoid integration errors}
 
-\item{alltimes}{a toggle parameter: alltimes=1 returns model outputs across every time point; alltimes=0 returns the output only at the maximum model time}
-
-\item{tx_pars}{named vector of model parameters relevant to treatment}
-
-\item{tx_times}{a numeric vector of model treatment times}
-
-\item{coverage_data}{optional inputted coverage data. The format must be one proportion for each time given in tx_times vector (i.e., length(coverage_data) == length(tx_times))}
+\item{tx_times}{a numeric vector of model treatment times (only used if input_tx_times==1 in tx_pars)}
 }
 \value{
 A list containing the output from the simulated transmission model

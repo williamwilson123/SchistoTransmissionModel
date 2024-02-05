@@ -1,11 +1,11 @@
 Package: SchistoTransmissionModel
 Type: Package
-Title: What the Package Does in One 'Title Case' Line
+Title: A schistosomiasis transmission and immunity model
 Version: 1.0
-Date: 2024-01-10
-Author: Your Name
-Maintainer: Your Name <your@email.com>
-Description: One paragraph description of what the package does as one or more full sentences.
+Date: 2024-02-05
+Author: Gregory Milne
+Maintainer: Gregory Milne <gmilne@rvc.ac.uk>
+Description: A schistosomiasis transmission and immunity model.
 License: GPL (>= 2)
 Imports: Rcpp (>= 1.0.11)
 LinkingTo: Rcpp,RcppEigen,RcppNumerical
