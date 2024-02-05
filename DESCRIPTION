@@ -11,4 +11,6 @@ Imports: Rcpp (>= 1.0.11)
 LinkingTo: Rcpp,RcppEigen,RcppNumerical
 Depends: Rcpp,RcppEigen,RcppNumerical
 Encoding: UTF-8
+VignetteBuilder: knitr
+Suggests: knitr, rmarkdown
 RoxygenNote: 7.2.3

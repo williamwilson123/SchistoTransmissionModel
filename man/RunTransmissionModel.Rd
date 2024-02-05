@@ -21,15 +21,6 @@ RunTransmissionModel(theta, tx_pars, runtime, stepsize, tx_times)
 A list containing the output from the simulated transmission model
 }
 \description{
-This function allows the user to simulate a Schistosoma mansoni transmission
-model. Parameters can be specified in the 'theta' vector, comprised of the
-following named elements (with sensible ranges of vales in parentheses)
-- R0 : the basic reproduction number
-- R0_weight : a weighting parameter that controls relative transmission from snails to humans vs. humans to snails
-- NhNs: human-to-snail population density (0 to 1)
-- kW : Negative binomial distribution shape parameter; controls aggregation of worms among hosts (0 to 1)
-- decay_immunity : rate of decay of IgE antibodies
-- protection_immunity : extent of protection provided by IgE antibodies (0 to 1)
-- epg_constant : no. eggs shed per fertile adult female schistosome
-- ige_constant : constant to map acquired immunity to IgE optical density (0 to 1)
+This function allows the user to simulate an intestinal schistosomiasis transmission
+model. See the package vignette for further details.
 }
