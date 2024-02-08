@@ -4,7 +4,14 @@
 \alias{RunTransmissionModel}
 \title{Run the transmission model}
 \usage{
-RunTransmissionModel(theta, tx_pars, runtime, stepsize, tx_times)
+RunTransmissionModel(
+  theta,
+  tx_pars,
+  runtime,
+  stepsize,
+  user_tx_times,
+  user_cov_weight
+)
 }
 \arguments{
 \item{theta}{named vector of model parameters; see description for details of elements}

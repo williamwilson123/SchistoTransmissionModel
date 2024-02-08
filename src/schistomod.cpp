@@ -55,9 +55,10 @@ double R0, R0_weight, NhNs, kW, decay_immunity, protection_immunity, epg_constan
 
 // treatment parameters
 int input_tx_times, toggle_tx, n_tx, min_tx_age, max_tx_age;
-double start_tx, freq_tx, coverage, efficacy;
+double start_tx, freq_tx, sac_coverage, efficacy;
 double cov_weight;
 NumericVector age_specific_cov(na); //age-specific coverage
+int num_MDAs = 0;  //for counting no. MDAs given
 
 // Indices for demographic groups (WHO Guideline on Control & Elimination of Schistosomiasis, 2022)
 IntegerVector sac_indices   = seq(5*(na/amax), 15*(na/amax));     //5-15 year olds
@@ -219,7 +220,6 @@ void InitialiseEverything() {
     ige_age_male[i] = 0;
     cumulative_worms_age_female[i] = 0;
     cumulative_worms_age_male[i] = 0;
-    age_specific_cov[i] = 0;
   }
   worm_burden_female = 0;
   worm_burden_male = 0;
@@ -618,11 +618,10 @@ void UpdateEverything() {
 
 
 // Function to calculate group-specific treatment coverage ---------------------
-NumericVector WeightCoverage(double cov_weight, double coverage, IntegerVector sac_indices, IntegerVector adult_indices, const int na) {
+NumericVector WeightCoverage(double cov_weight, double sac_coverage, IntegerVector sac_indices, IntegerVector adult_indices, const int na) {
 
   // Demographic group coverage
   double presac_coverage = 0;
-  double sac_coverage    = coverage;
   double adult_coverage  = sac_coverage * cov_weight;
   
   // Create age-specific coverage vector
@@ -750,15 +749,74 @@ void DynamickPostTreatment() {
 }
 
 
+// Error handling function -----------------------------------------------------
+void performErrorHandling(NumericVector treatment_times, NumericVector user_cov_weight, 
+                          double stepsize, double runtime, 
+                          double tolerance, double sac_coverage, 
+                          int toggle_tx, int input_tx_times) {
+  
+  //  Does model stepsize divide evenly into model run time?
+  if (std::remainder(runtime, stepsize) > tolerance) { 
+    Rcpp::stop("Model stepsize does not divide evenly into model run time");
+  }
+  
+  // Conditional error handling: treatment toggled on
+  if (toggle_tx == 1) {
+    
+    // Does stepsize divide evenly into treatment times vector?
+    for (int i = 0; i < treatment_times.size(); i++) {
+      if (std::remainder(treatment_times[i], stepsize) > tolerance) {
+        Rcpp::stop("Treatment event time is not a multiple of stepsize");
+      }
+    }
+    
+    // Does model run time extend past final treatment time?
+    if (max(treatment_times) > runtime) {
+      Rcpp::stop("Treatments run longer than simulation time");
+    }
+    
+    // Are any treatment times NA?
+    if (is_true(any(is_na(treatment_times)))) {
+      Rcpp::stop("NA detected in at least one treatment event time");
+    }
+    
+    // Conditional error handling: MDA times & coverage weights user-inputted
+    if (input_tx_times == 1) {
+      
+      // Are any user-inputted coverage weights NA?
+      if (is_true(any(is_na(user_cov_weight)))) {
+        Rcpp::stop("NA detected in at least one user-inputted coverage weight");
+      }
+      
+      // Are treatment times & coverage weights vectors the same length?
+      if (user_cov_weight.size() != treatment_times.size()) {
+        Rcpp::stop("User-inputted treatment times & coverage weights of different lengths");
+      }
+      
+      // Are coverage weights within reasonable bounds (i.e., !>100%)?
+      for(int i = 0; i < user_cov_weight.size(); i++){
+        if (sac_coverage * user_cov_weight[i] > 1) {
+          Rcpp::stop("User-inputted coverage weights causing some adult coverages to be >100%%");
+        }
+      }
+      
+    }
+    
+  }
+  
+}
+
+  
 //------------------------------------------------------------------------------
 // DEFINE TRANSMISSION MODEL FUNCTION 
 //------------------------------------------------------------------------------
 
 // [[Rcpp::export]]
-List RunModel(NumericVector theta, NumericVector tx_pars, int runtime, 
-              double stepsize, NumericVector tx_times) {
+List RunModel(NumericVector theta, NumericVector tx_pars, 
+              int runtime, double stepsize, 
+              NumericVector user_tx_times, NumericVector user_cov_weight) {
   
-  // Define parameters to be varied
+  // Define transmission & immunity parameters
   R0                  = std::exp(theta["R0"]);
   R0_weight           = std::exp(theta["R0_weight"]);
   NhNs                = std::exp(theta["NhNs"]);
@@ -774,52 +832,47 @@ List RunModel(NumericVector theta, NumericVector tx_pars, int runtime,
   start_tx       = tx_pars["start_tx"];       //model time to start treatments
   n_tx           = tx_pars["n_tx"];           //no. treatment events
   freq_tx        = tx_pars["freq_tx"];        //no. years btwn multiple treatment events
-  coverage       = tx_pars["coverage"];       //treatment coverage
+  sac_coverage   = tx_pars["sac_coverage"];   //treatment coverage in school aged children
   efficacy       = tx_pars["efficacy"];       //treatment efficacy
   min_tx_age     = tx_pars["min_tx_age"];     //minimum treatment age 
   max_tx_age     = tx_pars["max_tx_age"];     //maximum treatment age
-  cov_weight     = tx_pars["cov_weight"];     //weighting of coverage (0, coverage only in SAC & 1, coverage only in adults)
+  cov_weight     = tx_pars["cov_weight"];     //coverage weighting (adult coverage = sac_coverage * cov_weight)
   
-  // if treatment model toggled on
-  if (toggle_tx == 1) {
+  // Get MDA times and coverage weights
+  if (toggle_tx == 1) {  // if treatment model toggled on
     
-    // Get treatment times
-    if (input_tx_times == 0) {
-      // Calculate treatment times from input parameters
+    if (input_tx_times == 0) {  //using treatment parameters
+      
+      // Calculate treatment times 
       treatment_times = CalculateTreatmentTimes(tx_pars);
-    } else {
+      
+      // Calculate age-specific coverages
+      age_specific_cov = WeightCoverage(cov_weight, sac_coverage, sac_indices, adult_indices, na);
+      
+    } else {  //using user-inputted values
+      
       // Store treatment times from user-inputted vector 
-      treatment_times = Rcpp::clone(tx_times);
-    }
-    
-    // Error handling: does stepsize divide evenly into treatment times vector?
-    for (int i = 0; i < treatment_times.size(); i++) {
-      if (std::remainder(treatment_times[i], stepsize) > tolerance) {
-        Rcpp::stop("Treatment event time is not a multiple of stepsize");
-      }
-    }
-    
-    // Error handling: does model run time extend past final treatment time?
-    if (max(treatment_times) > runtime) {
-      Rcpp::stop("Treatments run longer than simulation time");
+      treatment_times = Rcpp::clone(user_tx_times);
+      
     }
     
   }
   
-  // calculate number of time steps
+  // Calculate number of time steps
   nsteps = static_cast<int>(runtime/stepsize);  //force nsteps to be integer
   
-  //  Error handling: does stepsize divide evenly into model run time?
-  if (std::remainder(runtime, stepsize) > tolerance) { 
-    Rcpp::stop("Model stepsize does not divide evenly into model run time");
-  }
+  // Call error handling function to check for errors
+  performErrorHandling(treatment_times, user_cov_weight, stepsize, runtime, 
+                       tolerance, sac_coverage, toggle_tx, input_tx_times);
   
   // Define storage objects for output
+  
+  // Time vector
+  NumericVector time_out(nsteps);
   
   // Age-averaged time-specific outputs
   NumericVector worm_burden_out(nsteps);
   NumericVector cumulative_worms_out(nsteps);
-  NumericVector time_out(nsteps);
   NumericVector epg_out(nsteps), epg_SAC_out(nsteps), prevalence_out(nsteps), prevalence_SAC_out(nsteps), ige_out(nsteps), dead_worms_out(nsteps);
   NumericVector kW_out(nsteps), kW_female_out(nsteps), kW_male_out(nsteps);
   
@@ -857,11 +910,6 @@ List RunModel(NumericVector theta, NumericVector tx_pars, int runtime,
   SmartInitialiseStates();
   // update outputs based on initial states
   UpdateEverything();
-  
-  if (toggle_tx == 1) {
-    // get age-specific coverage
-    age_specific_cov = WeightCoverage(cov_weight, coverage, sac_indices, adult_indices, na);
-  }
   
   // store output for time 0
   time_out[0] = 0;
@@ -928,8 +976,23 @@ List RunModel(NumericVector theta, NumericVector tx_pars, int runtime,
         // check if current time matches a treatment time (using Rcpp sugar syntax)
         if ( is_true(any( Rcpp::abs(time_out[h] - treatment_times) < tolerance )) ) {
           
+          if (input_tx_times == 0) {
+          
           // treat the population
           TreatmentEvent();
+            
+          } else {
+            
+            // Calculate MDA event-specific age-specific coverage
+            age_specific_cov = WeightCoverage(user_cov_weight[num_MDAs], 
+                                              sac_coverage, sac_indices, adult_indices, na);
+            
+            // treat the population
+            TreatmentEvent();
+            
+            // update the MDAs given to use as index for next treatment event 
+            num_MDAs += 1;
+          }
           
           // update states after treatment
           UpdateStates();
@@ -940,6 +1003,7 @@ List RunModel(NumericVector theta, NumericVector tx_pars, int runtime,
           // Calculate dynamic k following treatment event
           DynamickTreatment();
           
+          // if current time doesn't match a treatment time
         } else if (is_true(all(Rcpp::abs(time_out[h] - treatment_times) >= tolerance))) {
 
           // Calculate dynamic k when not a treatment event

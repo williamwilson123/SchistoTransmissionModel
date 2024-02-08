@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Gregoy Milne" />
+
+<meta name="date" content="2024-02-08" />
+
+<title>SchistoTransmissionModel: modelling schistosomiasis transmission &amp; immunity</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">SchistoTransmissionModel: modelling
+schistosomiasis transmission &amp; immunity</h1>
+<h4 class="author">Gregoy Milne</h4>
+<h4 class="date">2024-02-08</h4>
+
+
+
+<div id="package-set-up" class="section level2">
+<h2>Package set-up</h2>
+<p>The package can be installed and loaded like so:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">require</span>(SchistoTransmissionModel)) { <span class="fu">install.packages</span>(<span class="st">&quot;SchistoTransmissionModel&quot;</span>, <span class="at">dependencies =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>}</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">#&gt; Loading required package: SchistoTransmissionModel</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co">#&gt; Loading required package: Rcpp</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;Rcpp&#39; was built under R version 4.3.2</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt; Loading required package: RcppEigen</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co">#&gt; Warning: package &#39;RcppEigen&#39; was built under R version 4.3.2</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt; Loading required package: RcppNumerical</span></span></code></pre></div>
+</div>
+<div id="model-parameter-definition" class="section level2">
+<h2>Model parameter definition</h2>
+<p>The function to run the transmission model is
+<code>RunTransmissionModel()</code>, which takes the following
+arguments:</p>
+<ul>
+<li><code>theta</code>: a vector of transmission and immunity relevant
+parameters</li>
+<li><code>tx_pars</code>: a vector of treatment-relevant parameters</li>
+<li><code>runtime</code>: the length of time (in years) to run the model
+for</li>
+<li><code>stepsize</code>: the integration time step (for instance, 1/12
+will give a timestep of 1 month, 1/52 a timestep of 1 week)</li>
+<li><code>user_tx_times</code>: a vector of user-inputted MDA times
+(used to specify irregular intervals of MDA). Only used if
+<code>tx_pars[&quot;input_tx_times&quot;]==1</code>; otherwise (if
+<code>tx_pars[&quot;input_tx_times&quot;]==0</code>), parameters specified in
+<code>tx_pars</code> are used calculate MDA times.</li>
+<li><code>user_cov_weight</code>: a vector of coverage weights to
+specify relative distribution of treatment coverage between school-aged
+children (SAC) vs. adults (see <code>cov_weight</code> below for further
+details). Used if <code>tx_pars[&quot;input_tx_times&quot;]==1</code>. NB must be
+the same length as <code>user_tx_times</code>.</li>
+</ul>
+<p>The transmission and immunity model parameters (the
+<code>theta</code> argument of <code>RunTransmissionModel()</code>) are
+defined (with example values) like so:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Define model parameters (names must be spelt exactly but order doesn&#39;t matter)</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>theta <span class="ot">&lt;-</span> <span class="fu">c</span>(    </span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">R0                  =</span> <span class="fl">2.5</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">R0_weight           =</span> <span class="fl">0.4</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">NhNs                =</span> <span class="fl">0.3</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">kW                  =</span> <span class="fl">0.4</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">decay_immunity      =</span> <span class="dv">6</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="at">protection_immunity =</span> <span class="fl">0.5</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="at">epg_constant        =</span> <span class="fl">5.81</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">ige_constant        =</span> <span class="fl">0.5</span> </span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>)</span></code></pre></div>
+<p>where:</p>
+<ul>
+<li><code>R0</code> is the basic reproduction number</li>
+<li><code>R0_weight</code> controls the relative weighting of R0, from
+snails-to-human vs. humans-to-snails</li>
+<li><code>NhNs</code> is the human-to-snail population density</li>
+<li><code>kW</code> is the among-host worm overdispersion parameter
+(inversely related to aggregation)</li>
+<li><code>protection_immunity</code> is the protection afforded by
+smTAL1-IgE antibodies against cercarial establishment (rage: 0,1)</li>
+<li><code>epg_constant</code> is the no. eggs shed per fertile female
+schistosome</li>
+<li><code>ige_constant</code> is a constant parameter that maps acquired
+immunity to antibody optical densities</li>
+</ul>
+<p>The treatment relevant parameters (the <code>tx_pars</code> argument)
+are defined (with example values) like so:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Define treatment parameters (names must be spelt exactly but order doesn&#39;t matter)</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>tx_pars <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">input_tx_times =</span> <span class="dv">0</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">toggle_tx      =</span> <span class="dv">1</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">start_tx       =</span> <span class="dv">20</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">n_tx           =</span> <span class="dv">3</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">freq_tx        =</span> <span class="dv">1</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">sac_coverage   =</span> <span class="fl">0.75</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">efficacy       =</span> <span class="fl">0.95</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">min_tx_age     =</span> <span class="dv">5</span>,</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>  <span class="at">max_tx_age     =</span> <span class="dv">30</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>  <span class="at">cov_weight     =</span> <span class="fl">0.8</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>)</span></code></pre></div>
+<p>where:</p>
+<ul>
+<li><code>input_tx_times</code>: toggle parameter; when set to 0,
+treatment times are calculated from input parameters in the
+<code>tx_pars</code> vector; when set to 1 the model uses a
+user-inputted vector of treatment times</li>
+<li><code>toggle_tx</code>: toggle parameter; when set to 0, the model
+is simulated without treatment; when set to 1 the model simulates
+treatment using the other treatment-relevant parameters (below)</li>
+<li><code>start_tx</code>: model time to start treatment (used when
+<code>toggle_tx==1</code>)</li>
+<li><code>n_tx</code>: number of treatments (integer)</li>
+<li><code>freq_tx</code>: frequency of treatments in years;
+e.g. freq_tx=1 effects annual MDA, 0.5 twice-annual, 0.25 four-times
+annual, etc. Note that treatment frequencies must concord with the
+user-inputted model stepsize (above)</li>
+<li><code>sac_coverage</code>: MDA coverage in SAC (5-15 year olds; a
+proportion)</li>
+<li><code>efficacy</code>: drug efficacy against adult worms (a
+proportion from 0 [0% efficacy] to 1 [100% efficacy])</li>
+<li><code>min_tx_age</code>: minimum age of individuals that are treated
+during MDA (an integer)</li>
+<li><code>max_tx_age</code>: maximum age of individuals that are treated
+during MDA (an integer)</li>
+<li><code>cov_weight</code>: weighting parameter that determines
+coverage in adults (16+ year olds), where adult coverage =
+<code>sac_coverage</code> * <code>cov_weight</code> (NB pre-SAC coverage
+is hard-coded as 0 in the model and cannot be altered)</li>
+</ul>
+<p>We then set model run time (in years) and model time interval
+(integration stepsize) by:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>runtime <span class="ot">&lt;-</span> <span class="dv">30</span>     <span class="co">#30 years</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>stepsize <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">12</span>  <span class="co">#1 month</span></span></code></pre></div>
+</div>
+<div id="model-simulation" class="section level2">
+<h2>Model simulation</h2>
+<p>Now that all arguments are defined for
+<code>RunTransmissionModel</code>, the model can be run like so:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>sim <span class="ot">&lt;-</span> <span class="fu">RunTransmissionModel</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">theta    =</span> theta,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">tx_pars  =</span> tx_pars, </span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">runtime  =</span> runtime, </span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">stepsize =</span> stepsize, </span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  <span class="at">user_tx_times   =</span> <span class="cn">NA</span>, </span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="at">user_cov_weight =</span> <span class="cn">NA</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>)</span></code></pre></div>
+<p>Note the use of <code>user_tx_times = NA</code> and
+<code>user_cov_weight = NA</code> (since
+<code>tx_pars[&quot;input_tx_times&quot;]==0</code>). We’ll come back to other
+parameterisations shortly.</p>
+<div id="visualising-model-output" class="section level3">
+<h3>Visualising model output</h3>
+<p>The <code>RunTransmissionModel()</code> function returns a range of
+outputs (to explore these, run <code>View(sim)</code>). Outputs can be
+broadly be split into those that are time-dependent and and those that
+are age- and sex-dependent. We can visualise time-dependent outputs like
+so (for later ease of demonstrating another example, we will place the
+plotting code in a function):</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>plot_time_output <span class="ot">&lt;-</span> <span class="cf">function</span>(sim){</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="fu">plot</span>(sim<span class="sc">$</span>time, sim<span class="sc">$</span>worm_burden, <span class="st">&#39;l&#39;</span>, <span class="at">xlab =</span> <span class="st">&quot;Time (years)&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;Mean worm burden&quot;</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">plot</span>(sim<span class="sc">$</span>time, sim<span class="sc">$</span>epg, <span class="st">&#39;l&#39;</span>, <span class="at">xlab =</span> <span class="st">&quot;Time (years)&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;Mean epg&quot;</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>}</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="fu">plot_time_output</span>(sim)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><img src="data:image/png;base64,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" /></p>
+<p>We can visualise age- and sex-dependent outputs at a particular time
+point of the simulation like so:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># Specify time index to extract model output</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>time_index <span class="ot">&lt;-</span> <span class="fu">which</span>(sim<span class="sc">$</span>time <span class="sc">==</span> tx_pars[<span class="st">&quot;start_tx&quot;</span>])</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co"># Define a function to plot worm burdens &amp; epgs at particular time index</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>plot_age_output <span class="ot">&lt;-</span> <span class="cf">function</span>(sim, time_index) {</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  </span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="co"># Plot worm burdens</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="fu">plot</span>(sim<span class="sc">$</span>age, sim<span class="sc">$</span>worm_burden_age_female[time_index,], <span class="st">&#39;l&#39;</span>, <span class="at">xlab =</span> <span class="st">&quot;Age (years)&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;Worm burden&quot;</span>)</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="fu">lines</span>(sim<span class="sc">$</span>age, sim<span class="sc">$</span>worm_burden_age_male[time_index,], <span class="at">lty=</span><span class="dv">2</span>, <span class="at">col=</span><span class="st">&quot;red&quot;</span>)</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  </span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>  <span class="co"># Plot epgs</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  <span class="fu">plot</span>(sim<span class="sc">$</span>age, sim<span class="sc">$</span>epg_age_female[time_index,], <span class="st">&#39;l&#39;</span>, <span class="at">xlab =</span> <span class="st">&quot;Age (years)&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;epg&quot;</span>)</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a>  <span class="fu">lines</span>(sim<span class="sc">$</span>age, sim<span class="sc">$</span>epg_age_male[time_index,], <span class="at">lty=</span><span class="dv">2</span>, <span class="at">col=</span><span class="st">&quot;red&quot;</span>)</span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a>  </span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a>}</span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co"># Call function to make plots</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="fu">plot_age_output</span>(sim, time_index)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><img src="data:image/png;base64,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" /></p>
+<p>Note here that the model output (<code>sim</code>) is stored in a
+matrix, such that there is one row per time point. In this example, we
+therefore specify that we want to extract the age-dependent output at
+the index corresponding to the time at which MDA begins
+(<code>tx_pars[&quot;start_tx&quot;]</code>); although the user can select
+whatever time point they wish.</p>
+</div>
+<div id="specification-of-irregular-mda-treatment-times" class="section level3">
+<h3>Specification of irregular MDA treatment times</h3>
+<p>As mentioned earlier, we can specify irregular treatment times via an
+alternative model parameterisation like so:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># set toggle to 1 so model uses &#39;user_tx_times&#39; and `user_cov_weight`, not MDA times and coverage weights informed by &#39;tx_pars&#39; parameters</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>tx_pars[<span class="st">&quot;input_tx_times&quot;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co"># then specify some example treatment times</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>user_tx_times <span class="ot">&lt;-</span> <span class="fu">c</span>(tx_pars[<span class="st">&quot;start_tx&quot;</span>], tx_pars[<span class="st">&quot;start_tx&quot;</span>]<span class="sc">+</span><span class="dv">5</span>, tx_pars[<span class="st">&quot;start_tx&quot;</span>]<span class="sc">+</span><span class="dv">7</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co"># and associated coverage weights</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>user_cov_weight <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="dv">1</span>, <span class="fl">0.2</span>)</span></code></pre></div>
+<p>The model can then be simulated with this alternate
+parameterisation,</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>sim <span class="ot">&lt;-</span> <span class="fu">RunTransmissionModel</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="at">theta    =</span> theta,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">tx_pars  =</span> tx_pars, </span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">runtime  =</span> runtime, </span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="at">stepsize =</span> stepsize, </span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="at">user_tx_times   =</span> user_tx_times, </span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="at">user_cov_weight =</span> user_cov_weight</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>)</span></code></pre></div>
+<p>and time-dependent output visualised to demonstrate the effect on MDA
+timing,</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">plot_time_output</span>(sim)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --><img src="data:image/png;base64,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" /><!-- --></p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

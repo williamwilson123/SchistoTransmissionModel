@@ -10,7 +10,8 @@
 #' model. See the package vignette for further details.
 #' @return A list containing the output from the simulated transmission model
 #' @export
-RunTransmissionModel <- function(theta, tx_pars, runtime, stepsize, tx_times) {
+RunTransmissionModel <- function(theta, tx_pars, runtime, stepsize, 
+                                 user_tx_times, user_cov_weight) {
   
   # run model 
   out <-  RunModel(
@@ -19,7 +20,8 @@ RunTransmissionModel <- function(theta, tx_pars, runtime, stepsize, tx_times) {
     tx_pars = tx_pars, 
     runtime = runtime, 
     stepsize = stepsize, 
-    tx_times = tx_times
+    user_tx_times = user_tx_times,
+    user_cov_weight = user_cov_weight
   )
   
   # unpack listed output from Rcpp model function

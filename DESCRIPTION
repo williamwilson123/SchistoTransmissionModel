@@ -12,5 +12,7 @@ LinkingTo: Rcpp,RcppEigen,RcppNumerical
 Depends: Rcpp,RcppEigen,RcppNumerical
 Encoding: UTF-8
 VignetteBuilder: knitr
+Vignette: 
+    'SchistoTransmissionModel'
 Suggests: knitr, rmarkdown
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
