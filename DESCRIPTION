@@ -1,7 +1,7 @@
 Package: SchistoTransmissionModel
 Type: Package
 Title: A schistosomiasis transmission and immunity model
-Version: 1.0
+Version: 1.1
 Date: 2024-02-05
 Author: Gregory Milne
 Maintainer: Gregory Milne <gmilne@rvc.ac.uk>
@@ -12,7 +12,6 @@ LinkingTo: Rcpp,RcppEigen,RcppNumerical
 Depends: Rcpp,RcppEigen,RcppNumerical
 Encoding: UTF-8
 VignetteBuilder: knitr
-Vignette: 
-    'SchistoTransmissionModel'
+VignetteIndexEntry: 'SchistoTransmissionModel'
 Suggests: knitr, rmarkdown
 RoxygenNote: 7.3.1

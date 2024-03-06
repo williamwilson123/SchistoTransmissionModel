@@ -476,7 +476,7 @@ List Derivs() {
           dWdt_female(i,j) = FoI_female[i] - (nw*muW+da)*tmp_female_states(i,j) + da*tmp_female_states(i-1,j);
         }
 
-      } else if (j > 0 & j < nw) {  //subsequent worm groups
+      } else if (j > 0 && j < nw) {  //subsequent worm groups
         if (i == 0) {
           // first age group
           dWdt_male(i,j)   = nw*muW*tmp_male_states(i,j-1)   - (nw*muW+da)*tmp_male_states(i,j);
@@ -666,31 +666,45 @@ NumericVector CalculateTreatmentTimes(NumericVector tx_pars) {
 // Function to simulate community treatment  -----------------------------------
 void TreatmentEvent() {
   
-  // Treat between minimum & maximum treatment ages
-  for (int i = min_tx_age; i < max_tx_age; i++) {
-
-    //initialise storage for worms killed by treatment
-    double tmp_summed_male_killed_worms   = 0;
-    double tmp_summed_female_killed_worms = 0;
-
-    for (int j = 0; j < nw; j++) {
-      // calculate worms killed by treatment
-      male_killed_worms(i,j)   = male_states(i,j)  * age_specific_cov[i] * efficacy;
-      female_killed_worms(i,j) = female_states(i,j)* age_specific_cov[i] * efficacy;
-      // update worm burden following treatment
-      updated_male_states(i,j)   = male_states(i,j)   - male_killed_worms(i,j);
-      updated_female_states(i,j) = female_states(i,j) - female_killed_worms(i,j);
-      // sum the worms killed by treatment
-      tmp_summed_male_killed_worms   += male_killed_worms(i,j);
-      tmp_summed_female_killed_worms += female_killed_worms(i,j);
-    }
-    // then store killed worms for each host age group
-    summed_male_killed_worms[i]   = tmp_summed_male_killed_worms;
-    summed_female_killed_worms[i] = tmp_summed_female_killed_worms;
+  // Loop through all ages
+  for (int i = 0; i < na; i ++) {
     
-    // and add treatment-killed worms to dead worm states
-    updated_male_states(i,nw)   = male_states(i,nw)   + summed_male_killed_worms[i];
-    updated_female_states(i,nw) = female_states(i,nw) + summed_female_killed_worms[i];
+    // Treat only between minimum & maximum treatment ages
+    if (i >= min_tx_age && i <= max_tx_age) {
+      
+      //initialise storage for worms killed by treatment
+      double tmp_summed_male_killed_worms   = 0;
+      double tmp_summed_female_killed_worms = 0;
+      
+      for (int j = 0; j < nw; j++) {
+        // calculate worms killed by treatment
+        male_killed_worms(i,j)   = male_states(i,j)  * age_specific_cov[i] * efficacy;
+        female_killed_worms(i,j) = female_states(i,j)* age_specific_cov[i] * efficacy;
+        // update worm burden following treatment
+        updated_male_states(i,j)   = male_states(i,j)   - male_killed_worms(i,j);
+        updated_female_states(i,j) = female_states(i,j) - female_killed_worms(i,j);
+        // sum the worms killed by treatment
+        tmp_summed_male_killed_worms   += male_killed_worms(i,j);
+        tmp_summed_female_killed_worms += female_killed_worms(i,j);
+      }
+      // then store killed worms for each host age group
+      summed_male_killed_worms[i]   = tmp_summed_male_killed_worms;
+      summed_female_killed_worms[i] = tmp_summed_female_killed_worms;
+      
+      // and add treatment-killed worms to dead worm states
+      updated_male_states(i,nw)   = male_states(i,nw)   + summed_male_killed_worms[i];
+      updated_female_states(i,nw) = female_states(i,nw) + summed_female_killed_worms[i];
+      
+    } else {
+      
+      for (int j = 0; j < (nw+2); j++) {
+        // ensure worm burdens remain the same for individuals not treated
+        updated_male_states(i,j)   = male_states(i,j);
+        updated_female_states(i,j) = female_states(i,j);
+      }
+      
+    }
+    
   }
   
 }
@@ -814,7 +828,8 @@ void performErrorHandling(NumericVector treatment_times, NumericVector user_cov_
 // [[Rcpp::export]]
 List RunModel(NumericVector theta, NumericVector tx_pars, 
               int runtime, double stepsize, 
-              NumericVector user_tx_times, NumericVector user_cov_weight) {
+              NumericVector user_tx_times, NumericVector user_cov_weight, 
+              double time_extract_states) {
   
   // Define transmission & immunity parameters
   R0                  = std::exp(theta["R0"]);
@@ -886,6 +901,8 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
   NumericMatrix prevalence_age_male_out(nsteps, na), prevalence_age_female_out(nsteps, na);
   NumericMatrix ige_age_male_out(nsteps, na), ige_age_female_out(nsteps, na);
   NumericMatrix kW_female_age_out(nsteps, na), kW_male_age_out(nsteps, na);
+  // output state variables for input into Fibroschot trial model
+  NumericMatrix male_states_out(na, nw+2), female_states_out(na, nw+2);
 
   // initialize among-host worm overdisperion (k) parameters
   kW_female = kW; //all females
@@ -940,6 +957,9 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
   kW_female_age_out(0,_)  = kW_age_female;
   kW_male_age_out(0,_)    = kW_age_male;
   kW_out[0] = kW;
+  // male_states_out(0,_)   = male_states;
+  // female_states_out(0,_) = female_states;
+  
   
   // loop through time steps
   for (int h = 0; h < nsteps; h++) {
@@ -961,8 +981,8 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
     // Treatment toggled on
     if (toggle_tx == 1) {
       
-      // timestep before first treatment event
-      if (time_out[h] == treatment_times[0]-1) {
+      // check if timestep before first treatment event
+      if (std::abs(time_out[h] - start_tx + stepsize) < tolerance) {
         
         // For dynamic k: get worm burden @ equilibrium
         for (int i = 0; i < na; i++) {
@@ -1092,6 +1112,18 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
     ige_age_female_out(h,_) = ige_age_female;
     ige_age_male_out(h,_)   = ige_age_male;
     
+    // store state variables for output at user-specified time
+    if (std::abs(time_out[h] - time_extract_states) < tolerance) {
+      for (int i = 0; i < na; i++) {
+        for(int j = 0; j < (nw+2); j++) {
+          male_states_out(i,j)   = male_states(i,j);
+          female_states_out(i,j) = female_states(i,j);
+        } 
+      }
+      
+    }
+    
+    
   } // end of time loop
 
   // get value of largest derivative (used to check equilibrium reached ok)
@@ -1131,7 +1163,9 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
       Rcpp::Named("IgE_age_male")   = ige_age_male_out,
       Rcpp::Named("IgE_age_female") = ige_age_female_out,
       Rcpp::Named("kW_age_female") = kW_female_age_out,
-      Rcpp::Named("kW_age_male")   = kW_male_age_out
+      Rcpp::Named("kW_age_male")   = kW_male_age_out, 
+      Rcpp::Named("male_states_out")   = male_states_out,
+      Rcpp::Named("female_states_out") = female_states_out
     ), 
     
     // time-specific outputs

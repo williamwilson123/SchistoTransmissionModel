@@ -10,7 +10,8 @@ RunTransmissionModel(
   runtime,
   stepsize,
   user_tx_times,
-  user_cov_weight
+  user_cov_weight,
+  time_extract_states
 )
 }
 \arguments{
@@ -22,12 +23,16 @@ RunTransmissionModel(
 
 \item{stepsize}{model stepsize (dt) in years. Relatively small step sizes (1/12 or less) are recommended to avoid integration errors}
 
-\item{tx_times}{a numeric vector of model treatment times (only used if input_tx_times==1 in tx_pars)}
+\item{user_tx_times}{a numeric vector of model treatment times (only used if input_tx_times==1 in tx_pars; else, can be safely set to NA); this parameterisation then ignores other treatment-related parameters specified in tx_pars}
+
+\item{user_cov_weight}{a numeric vector of model coverage weights (only used if input_tx_times==1 in tx_pars; else, can be safely set to NA); this parameterisation then ignores other treatment-related parameters specified in tx_pars}
+
+\item{time_extract_states}{a numeric model time at which to extract the state matrices. Can be safely set to NA if not needed}
 }
 \value{
 A list containing the output from the simulated transmission model
 }
 \description{
 This function allows the user to simulate an intestinal schistosomiasis transmission
-model. See the package vignette for further details.
+model & return the (unlisted) output. See the package vignette for further details.
 }

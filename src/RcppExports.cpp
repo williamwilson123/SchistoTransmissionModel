@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // RunModel
-List RunModel(NumericVector theta, NumericVector tx_pars, int runtime, double stepsize, NumericVector user_tx_times, NumericVector user_cov_weight);
-RcppExport SEXP _SchistoTransmissionModel_RunModel(SEXP thetaSEXP, SEXP tx_parsSEXP, SEXP runtimeSEXP, SEXP stepsizeSEXP, SEXP user_tx_timesSEXP, SEXP user_cov_weightSEXP) {
+List RunModel(NumericVector theta, NumericVector tx_pars, int runtime, double stepsize, NumericVector user_tx_times, NumericVector user_cov_weight, double time_extract_states);
+RcppExport SEXP _SchistoTransmissionModel_RunModel(SEXP thetaSEXP, SEXP tx_parsSEXP, SEXP runtimeSEXP, SEXP stepsizeSEXP, SEXP user_tx_timesSEXP, SEXP user_cov_weightSEXP, SEXP time_extract_statesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -23,13 +23,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type stepsize(stepsizeSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type user_tx_times(user_tx_timesSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type user_cov_weight(user_cov_weightSEXP);
-    rcpp_result_gen = Rcpp::wrap(RunModel(theta, tx_pars, runtime, stepsize, user_tx_times, user_cov_weight));
+    Rcpp::traits::input_parameter< double >::type time_extract_states(time_extract_statesSEXP);
+    rcpp_result_gen = Rcpp::wrap(RunModel(theta, tx_pars, runtime, stepsize, user_tx_times, user_cov_weight, time_extract_states));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_SchistoTransmissionModel_RunModel", (DL_FUNC) &_SchistoTransmissionModel_RunModel, 6},
+    {"_SchistoTransmissionModel_RunModel", (DL_FUNC) &_SchistoTransmissionModel_RunModel, 7},
     {NULL, NULL, 0}
 };
 
