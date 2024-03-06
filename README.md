@@ -1,6 +1,6 @@
 ## How to install & use package SchistoTransmissionModel
 
-The package can be installed and loaded like so:
+The package can be installed and loaded from R like so:
 
     if (!require(SchistoTransmissionModel)) { 
       devtools::install_github("gcmilne/SchistoTransmissionModel")
