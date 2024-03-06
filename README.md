@@ -2,7 +2,8 @@
 
 The package can be installed and loaded like so:
 
-    if (!require(SchistoTransmissionModel)) { install.packages("SchistoTransmissionModel", dependencies = TRUE)
+    if (!require(SchistoTransmissionModel)) { 
+      devtools::install_github("gcmilne/SchistoTransmissionModel")
     }
 
     ## Loading required package: SchistoTransmissionModel

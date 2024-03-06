@@ -15,7 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The package can be installed and loaded like so:
 ```{r}
-if (!require(SchistoTransmissionModel)) { install.packages("SchistoTransmissionModel", dependencies = TRUE)
+if (!require(SchistoTransmissionModel)) { 
+  devtools::install_github("gcmilne/SchistoTransmissionModel")
 }
 ```
 
