@@ -1,4 +1,4 @@
-## Package set-up
+## How to install & use package SchistoTransmissionModel
 
 The package can be installed and loaded like so:
 
