@@ -6,7 +6,9 @@
 #' @param stepsize model stepsize (dt) in years. Relatively small step sizes (1/12 or less) are recommended to avoid integration errors
 #' @param user_tx_times a numeric vector of model treatment times (only used if input_tx_times==1 in tx_pars; else, can be safely set to NA); this parameterisation then ignores other treatment-related parameters specified in tx_pars
 #' @param user_cov_weight a numeric vector of model coverage weights (only used if input_tx_times==1 in tx_pars; else, can be safely set to NA); this parameterisation then ignores other treatment-related parameters specified in tx_pars
-#' @param time_extract_states a numeric model time at which to extract the state matrices. Can be safely set to NA if not needed
+#' @param time_extract_states a numeric model time at which to extract the state matrices. Can be set to NA if not needed
+#' @param init_female_states a matrix of input female states. If not required, set to matrix(NA)
+#' @param init_male_states a matrix of input male states. If not required, set to matrix(NA)
 #' @description
 #' This function allows the user to simulate an intestinal schistosomiasis transmission
 #' model & return the (unlisted) output. See the package vignette for further details.
@@ -14,7 +16,8 @@
 #' @export
 RunTransmissionModel <- function(theta, tx_pars, runtime, stepsize, 
                                  user_tx_times, user_cov_weight, 
-                                 time_extract_states) {
+                                 time_extract_states, init_female_states, 
+                                 init_male_states) {
   
   # take log of parameter values (model takes the exponent)
   log_theta <- log(theta)
@@ -28,7 +31,9 @@ RunTransmissionModel <- function(theta, tx_pars, runtime, stepsize,
     user_tx_times = user_tx_times,
     user_cov_weight = user_cov_weight, 
     # specify time to extract state matrices
-    time_extract_states = time_extract_states
+    time_extract_states = time_extract_states, 
+    init_female_states = init_female_states,
+    init_male_states = init_male_states
   )
   
   # unpack listed output from Rcpp model function

@@ -83,6 +83,10 @@ NumericVector cumulative_worms_age_male(na), cumulative_worms_age_female(na);
 NumericVector kpost_female(na), kpost_male(na);
 NumericVector kW_age_female(na), kW_age_male(na);
 double kW_female, kW_male;
+double kW_female_avg;
+double kW_male_avg;
+double kpost_female_avg;
+double kpost_male_avg;
 double worm_burden_male, worm_burden_female;
 double worm_burden;
 double cumulative_worms_male, cumulative_worms_female;
@@ -237,6 +241,10 @@ void InitialiseEverything() {
   cumulative_worms_male = 0;
   cumulative_worms_female = 0;
   cumulative_worms = 0;
+  kW_female_avg = kW; //initialise to input k for mating function before treatment
+  kW_male_avg = kW;   //initialise to input k for mating function before treatment
+  kpost_female_avg = 0;
+  kpost_male_avg = 0;
 }
 
 // Function to generate initial state variables based on input parameters ------
@@ -341,8 +349,10 @@ void EPG(){
 void Prevalence() {
   // by age
   // calculate probability of 0 eggs
-  prevalence_age_female = pnbinom_func(0, Named("size")=kW_age_female, _["mu"]=epg_age_female);
-  prevalence_age_male   = pnbinom_func(0, Named("size")=kW_age_male,   _["mu"]=epg_age_male);
+  // prevalence_age_female = pnbinom_func(0, Named("size")=kW_age_female, _["mu"]=epg_age_female);
+  // prevalence_age_male   = pnbinom_func(0, Named("size")=kW_age_male,   _["mu"]=epg_age_male);
+  prevalence_age_female = pnbinom_func(0, Named("size")=kW_female_avg, _["mu"]=epg_age_female);
+  prevalence_age_male   = pnbinom_func(0, Named("size")=kW_male_avg,   _["mu"]=epg_age_male);
   // calculate 1 minus that probability to get prevalence
   prevalence_age_female = 1 - prevalence_age_female;
   prevalence_age_male   = 1 - prevalence_age_male;
@@ -408,10 +418,12 @@ void DeadWorms() {
 
 // Function to calculate mating probabilities ----------------------------------
 void MonogamousMatingFunc() {
+
   for(int i = 0; i < na; i++) {
     if (worm_burden_age_female[i] > 0) {
       double Wtmp_female = worm_burden_age_female[i];
-      double ktmp_female = kW_age_female[i];
+      // double ktmp_female = kW_age_female[i];
+      double ktmp_female = kW_female_avg;
       double alpha = Wtmp_female/(ktmp_female+Wtmp_female);
       MatingProbIntegrand f(alpha, ktmp_female);
       res = integrate(f, lower, upper, err_est, err_code);
@@ -421,7 +433,8 @@ void MonogamousMatingFunc() {
     }
     if (worm_burden_age_male[i] > 0) {
       double Wtmp_male = worm_burden_age_male[i];
-      double ktmp_male = kW_age_male[i];
+      // double ktmp_male = kW_age_male[i];
+      double ktmp_male = kW_male_avg;
       double alpha = Wtmp_male/(ktmp_male+Wtmp_male);
       MatingProbIntegrand f(alpha, ktmp_male);
       res = integrate(f, lower, upper, err_est, err_code);
@@ -621,7 +634,7 @@ void UpdateEverything() {
 NumericVector WeightCoverage(double cov_weight, double sac_coverage, IntegerVector sac_indices, IntegerVector adult_indices, const int na) {
 
   // Demographic group coverage
-  double presac_coverage = 0;
+  double presac_coverage = 0.0;
   double adult_coverage  = sac_coverage * cov_weight;
   
   // Create age-specific coverage vector
@@ -629,7 +642,7 @@ NumericVector WeightCoverage(double cov_weight, double sac_coverage, IntegerVect
   
   // pre-SAC
   for (int i = 0; i < min(sac_indices); i++) {
-    final_coverage[i] = 0.0;
+    final_coverage[i] = presac_coverage;
   }
   // SAC
   for (int i = 0; i < sac_indices.size(); i++) {
@@ -667,7 +680,7 @@ NumericVector CalculateTreatmentTimes(NumericVector tx_pars) {
 void TreatmentEvent() {
   
   // Loop through all ages
-  for (int i = 0; i < na; i ++) {
+  for (int i = 0; i < na; i++) {
     
     // Treat only between minimum & maximum treatment ages
     if (i >= min_tx_age && i <= max_tx_age) {
@@ -717,25 +730,15 @@ void DynamickTreatment() {
     // get worm burden after treatment
     worm_burden_age_female_post[i] = worm_burden_age_female[i];
     worm_burden_age_male_post[i]   = worm_burden_age_male[i];
-    // calculate age-specific k post-treatment
-    kpost_female[i] = (kW*worm_burden_age_female_post[i])/((1+kW)*worm_burden_age_female_equib[i]-kW*worm_burden_age_female_post[i]);
-    kpost_male[i]   = (kW*worm_burden_age_male_post[i])  /((1+kW)*worm_burden_age_male_equib[i]  -kW*worm_burden_age_male_post[i]);
-    // update age-specific k
-    kW_age_female[i] = pow(worm_burden_age_female[i], 2) * ( pow( (worm_burden_age_female_equib[i] - worm_burden_age_female_post[i]), 2)) /(((pow(worm_burden_age_female_equib[i], 2))/kW) * pow((worm_burden_age_female[i] - worm_burden_age_female_post[i]), 2) + (pow(worm_burden_age_female_post[i], 2) / kpost_female[i]) * (pow((worm_burden_age_female[i] - worm_burden_age_female_equib[i]), 2)));
-    kW_age_male[i]   = pow(worm_burden_age_male[i], 2)   * ( pow( (worm_burden_age_male_equib[i]   - worm_burden_age_male_post[i]), 2))   /(((pow(worm_burden_age_male_equib[i], 2))/kW)   * pow((worm_burden_age_male[i]   - worm_burden_age_male_post[i]), 2)   + (pow(worm_burden_age_male_post[i], 2)   / kpost_male[i])   * (pow((worm_burden_age_male[i]   - worm_burden_age_male_equib[i]), 2)));
+
+    // // calculate age-specific k post-treatment
+    // kpost_female[i] = ( kW * worm_burden_age_female_post[i] ) / ( (1 + kW) * worm_burden_age_female_equib[i] - kW * worm_burden_age_female_post[i] );
+    // kpost_male[i]   = ( kW * worm_burden_age_male_post[i]   ) / ( (1 + kW) * worm_burden_age_male_equib[i]   - kW * worm_burden_age_male_post[i]   );
   }
   
-  // calculate weighted mean k for given timepoint
-  double acc_kW_female = 0, acc_kW_male = 0;
-  
-  for (int i = 0; i < na; i++) {
-    acc_kW_female += kW_age_female[i]*demographic_weights[i];
-    acc_kW_male   += kW_age_male[i]  *demographic_weights[i];
-  }
-  
-  kW_female = acc_kW_female;
-  kW_male   = acc_kW_male;
-  wormk     = prop_female*kW_female + prop_male*kW_male;
+  // calculate average k post-treatment
+  kpost_female_avg = ( kW * mean(worm_burden_age_female_post) ) / ( (1 + kW) * mean(worm_burden_age_female_equib) - kW * mean(worm_burden_age_female_post) );
+  kpost_male_avg   = ( kW * mean(worm_burden_age_male_post)   ) / ( (1 + kW) * mean(worm_burden_age_male_equib)   - kW * mean(worm_burden_age_male_post)   );
   
 }
 
@@ -743,21 +746,31 @@ void DynamickTreatment() {
 // Function to update k AFTER treatment event ----------------------------------
 void DynamickPostTreatment() {
   
-  for (int i = 0; i < na; i++) {
-    kW_age_female[i] = ( kW * worm_burden_age_female[i] ) / ( (1+kW) * worm_burden_age_female_equib[i] - kW * worm_burden_age_female[i]);
-    kW_age_male[i]   = ( kW * worm_burden_age_male[i]   ) / ( (1+kW) * worm_burden_age_male_equib[i]   - kW * worm_burden_age_male[i]  );
-  }
+  // for (int i = 0; i < na; i++) {
+  //   // update age-specific k
+  //   kW_age_female[i] = ( pow(worm_burden_age_female[i], 2) * pow( worm_burden_age_female_equib[i] - worm_burden_age_female_post[i], 2) ) / ( ( pow(worm_burden_age_female_equib[i], 2) / kW ) * pow( worm_burden_age_female[i] - worm_burden_age_female_post[i], 2) + ( pow(worm_burden_age_female_post[i], 2) / kpost_female[i] ) * ( pow( worm_burden_age_female[i] - worm_burden_age_female_equib[i], 2) ) );
+  //   kW_age_male[i]   = ( pow(worm_burden_age_male[i],   2) * pow( worm_burden_age_male_equib[i]   - worm_burden_age_male_post[i],   2) ) / ( ( pow(worm_burden_age_male_equib[i],   2) / kW ) * pow( worm_burden_age_male[i]   - worm_burden_age_male_post[i]  , 2) + ( pow(worm_burden_age_male_post[i],   2) / kpost_male[i]   ) * ( pow( worm_burden_age_male[i]   - worm_burden_age_male_equib[i]  , 2) ) );
+  // }
+  
+  kW_female_avg = ( pow( mean(worm_burden_age_female), 2) * pow( mean(worm_burden_age_female_equib) - mean(worm_burden_age_female_post), 2) ) / ( ( pow( mean(worm_burden_age_female_equib), 2) / kW ) * pow( mean(worm_burden_age_female) - mean(worm_burden_age_female_post), 2) + ( pow( mean(worm_burden_age_female_post), 2) / kpost_female_avg ) * ( pow( mean(worm_burden_age_female) - mean(worm_burden_age_female_equib), 2) ) );
+  kW_male_avg   = ( pow( mean(worm_burden_age_male),   2) * pow( mean(worm_burden_age_male_equib)   - mean(worm_burden_age_male_post),   2) ) / ( ( pow( mean(worm_burden_age_male_equib),   2) / kW ) * pow( mean(worm_burden_age_male)   - mean(worm_burden_age_male_post)  , 2) + ( pow( mean(worm_burden_age_male_post),   2) / kpost_male_avg   ) * ( pow( mean(worm_burden_age_male)   - mean(worm_burden_age_male_equib)  , 2) ) );
     
+  // // calculate weighted mean k at given timepoint
+  // double acc_kW_female = 0, acc_kW_male = 0;
+  // double acc_kW_female_avg = 0, acc_kW_male_avg = 0;
+  // 
+  // for (int i = 0; i < na; i++) {
+  //   acc_kW_female += kW_age_female[i] * demographic_weights[i];
+  //   acc_kW_male   += kW_age_male[i]   * demographic_weights[i];
+  // }
+  // 
+  // kW_female = acc_kW_female;
+  // kW_male   = acc_kW_male;
+  // wormk     = prop_female*kW_female + prop_male*kW_male;
+  
   // calculate weighted mean k at given timepoint
-  double acc_kW_female = 0, acc_kW_male = 0;
-  
-  for (int i = 0; i < na; i++) {
-    acc_kW_female += kW_age_female[i]*demographic_weights[i];
-    acc_kW_male   += kW_age_male[i]  *demographic_weights[i];
-  }
-  
-  kW_female = acc_kW_female;
-  kW_male   = acc_kW_male;
+  kW_female = kW_female_avg;
+  kW_male   = kW_male_avg;
   wormk     = prop_female*kW_female + prop_male*kW_male;
   
 }
@@ -826,10 +839,11 @@ void performErrorHandling(NumericVector treatment_times, NumericVector user_cov_
 //------------------------------------------------------------------------------
 
 // [[Rcpp::export]]
-List RunModel(NumericVector theta, NumericVector tx_pars, 
+List RunModel(NumericVector theta, NumericVector tx_pars,
               int runtime, double stepsize, 
               NumericVector user_tx_times, NumericVector user_cov_weight, 
-              double time_extract_states) {
+              double time_extract_states, 
+              NumericMatrix init_female_states, NumericMatrix init_male_states) {
   
   // Define transmission & immunity parameters
   R0                  = std::exp(theta["R0"]);
@@ -924,7 +938,15 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
   // worm burdens, mating probabilities, acquired immunity, epgs, IgEs and dead worms
   InitialiseEverything();
   // initialize state matrices
-  SmartInitialiseStates();
+  // if user-inputted state matrices are NA, initialise to get to endemic equilibrium ASAP
+  if (is_true(any(is_na(init_female_states)))) {
+    SmartInitialiseStates();
+    // if user-inputted state matrices are non-NA, use these as initial states
+  } else {
+    male_states   = Rcpp::clone(init_male_states);
+    female_states = Rcpp::clone(init_female_states);
+  }
+  
   // update outputs based on initial states
   UpdateEverything();
   
@@ -990,6 +1012,9 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
           worm_burden_age_male_equib[i]   = worm_burden_age_male[i];
         }
         
+        // Rcout << "worm_burden_age_female_equib, after define \n";
+        // Rcout << worm_burden_age_female_equib << "\n";
+        
         // during treatment period
       } else if (time_out[h] >= treatment_times[0]) {
         
@@ -1024,12 +1049,18 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
           DynamickTreatment();
           
           // if current time doesn't match a treatment time
-        } else if (is_true(all(Rcpp::abs(time_out[h] - treatment_times) >= tolerance))) {
-
-          // Calculate dynamic k when not a treatment event
-          DynamickPostTreatment();
+        } //else if (is_true(all(Rcpp::abs(time_out[h] - treatment_times) >= tolerance))) {
           
-        } //end of if() where time doesn't match a treatment time
+          // // Calculate dynamic k when not a treatment event
+          // DynamickPostTreatment();
+          
+        // } //end of if() where time doesn't match a treatment time
+        
+        // Update dynamic k
+        DynamickPostTreatment();
+        
+        // Update prevalence with updated k
+        Prevalence();
         
       }  //end of if() where times >= treatment times
       

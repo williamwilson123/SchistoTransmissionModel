@@ -1,8 +1,8 @@
 Package: SchistoTransmissionModel
 Type: Package
 Title: A schistosomiasis transmission and immunity model
-Version: 1.1
-Date: 2024-02-05
+Version: 1.2
+Date: 2024-03-26
 Author: Gregory Milne
 Maintainer: Gregory Milne <gmilne@rvc.ac.uk>
 Description: A schistosomiasis transmission and immunity model.

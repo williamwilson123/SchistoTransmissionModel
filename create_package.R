@@ -52,19 +52,18 @@ setwd("SchistoTransmissionModel")  # Change working directory to your package di
 
 #Add Rtools to PATH
 # Sys.setenv(PATH = paste("C:/Rtools43/bin", Sys.getenv("PATH"), sep=";"))
-
 devtools::document() #generate documentation
 devtools::build(path=getwd())    #build the 'tarball' in current directory
 devtools::install()  #install the package (if fails with '! System command 'Rcmd.exe' failed' error, restart R & try again)
 
 # if vignettes not being found can install from tarball instead
-install.packages("SchistoTransmissionModel_1.1.tar.gz", repos = NULL, type = "source")
+install.packages("SchistoTransmissionModel_1.2.tar.gz", repos = NULL, type = "source")
 
 # Load your package
 library(SchistoTransmissionModel)
 
 # Then you can use the Rcpp model via the R wrapper function like so: 
-# SchistoTransmissionModel::RunTransmissionModel()
+?SchistoTransmissionModel::RunTransmissionModel()
 
 # Is the vignette available?
 vignette(topic="SchistoTransmissionModel", package="SchistoTransmissionModel")
