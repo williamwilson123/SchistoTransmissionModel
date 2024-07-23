@@ -1215,7 +1215,7 @@ List RunModel(NumericVector theta, NumericVector tx_pars,
       Rcpp::Named("kW_female") = kW_female_out,
       Rcpp::Named("kW_male") = kW_male_out,
       Rcpp::Named("kW") = kW_out,
-      Rcpp::Named("max_deriv") = tol_out
+      Rcpp::Named("treatment_times") = treatment_times
     )
   );
   
